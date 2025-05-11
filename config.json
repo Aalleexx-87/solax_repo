@@ -12,10 +12,16 @@
   "arch": ["amd64", "armv7", "aarch64"],
   "options": {
     "username": "",
-    "password": ""
+    "password": "",
+    "IP broker": "",
+    "porta": "",
+    "IP inverter": ""
   },
   "schema": {
     "username": "str",
-    "password": "str"
+    "password": "str",
+    "IP broker": "str",
+    "porta": "str",
+    "IP inverter": "str"
   }
 }
