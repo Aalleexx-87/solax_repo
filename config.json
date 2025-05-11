@@ -10,6 +10,11 @@
   "auth": false,
   "privileged": [],
   "arch": ["amd64", "armv7", "aarch64"],
-  "options": {},
-  "schema": {}
-}
+  "options": {
+    "username": "",
+    "password": ""
+  },
+  "schema": {
+    "username": "str",
+    "password": "str"
+  }
