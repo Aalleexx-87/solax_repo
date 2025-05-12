@@ -13,11 +13,11 @@
   "options": {
     "username": "",
     "password": "",
-    "ip_broker": "192.168.1.10",
-    "port_broker": "1883",
-    "ip_inverter": "192.168.1.100",
-    "port_inverter": "80",
-    "password_inverter": "605302"
+    "ip_broker": "",
+    "port_broker": "",
+    "ip_inverter": "",
+    "port_inverter": "",
+    "password_inverter": ""
   },
   "schema": {
     "username": "str",
