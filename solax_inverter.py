@@ -60,8 +60,8 @@ async def main_loop():
         inverter = await discover(ip_inverter, port_inverter, pwd=password_inverter)
         rt_api = RealTimeAPI(inverter)
 
-        # Client MQTT compatibile con API moderna
-        client = mqtt.Client(callback_api_version=5, protocol=mqtt.MQTTv311)
+        # Client MQTT compatibile con API moderna, forzando MQTTv311 e TCP
+        client = mqtt.Client(protocol=mqtt.MQTTv311, transport="tcp")
         if username and password:
             client.username_pw_set(username, password)
         client.on_connect = on_connect
