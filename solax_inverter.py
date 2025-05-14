@@ -1,5 +1,7 @@
 import asyncio
 import json
+from datetime import datetime
+from zoneinfo import ZoneInfo  # Per ottenere l’ora locale (Trento)
 import paho.mqtt.client as mqtt
 from solax import discover, RealTimeAPI
 
@@ -20,7 +22,7 @@ port_inverter = int(config.get("port_inverter"))
 password_inverter = config.get("password_inverter")
 
 # Callback connessione MQTT
-def on_connect(client, userdata, flags, rc):
+def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
         print("✅ Connesso al broker MQTT con successo")
     else:
@@ -29,6 +31,9 @@ def on_connect(client, userdata, flags, rc):
 # Pubblica dati su MQTT
 def send_mqtt(client, data):
     try:
+        # Aggiunge timestamp con fuso orario Europa/Rome
+        data["timestamp"] = datetime.now(ZoneInfo("Europe/Rome")).isoformat()
+
         payload = json.dumps(data)
         print("📦 Payload inviato su MQTT:")
         print(payload)
@@ -36,7 +41,7 @@ def send_mqtt(client, data):
         result = client.publish(topic, payload)
         result.wait_for_publish()
 
-        if result.rc == 0:
+        if result.rc == mqtt.MQTT_ERR_SUCCESS:
             print(f"✅ Dati pubblicati su MQTT: {topic}")
         else:
             print(f"❌ Errore nella pubblicazione: rc={result.rc}")
@@ -50,7 +55,8 @@ async def main_loop():
         inverter = await discover(ip_inverter, port_inverter, pwd=password_inverter)
         rt_api = RealTimeAPI(inverter)
 
-        client = mqtt.Client()
+        # Usa protocollo esplicito per evitare il warning
+        client = mqtt.Client(protocol=mqtt.MQTTv311)
         if username and password:
             client.username_pw_set(username, password)
         client.on_connect = on_connect
