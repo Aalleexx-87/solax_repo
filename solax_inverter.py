@@ -1,7 +1,5 @@
 import asyncio
 import json
-from datetime import datetime
-from zoneinfo import ZoneInfo
 import paho.mqtt.client as mqtt
 from solax import discover, RealTimeAPI
 
@@ -50,11 +48,9 @@ async def main_loop():
     try:
         print(f"🔍 Scoperta inverter su {ip_inverter}:{port_inverter}")
         inverter = await discover(ip_inverter, port_inverter, pwd=password_inverter)
-        print(f"✅ Inverter scoperto: {inverter}")
         rt_api = RealTimeAPI(inverter)
 
-        client = mqtt.Client(protocol=mqtt.MQTTv311)  # ✅ Specifica protocollo per evitare warning
-        client.enable_logger()  # 🔍 Abilita log dettagliati su stdout
+        client = mqtt.Client()
         if username and password:
             client.username_pw_set(username, password)
         client.on_connect = on_connect
@@ -63,37 +59,13 @@ async def main_loop():
         client.connect(broker, port, 60)
         client.loop_start()
 
-        # 📡 Testa una pubblicazione iniziale
-        client.publish("solax/test", "✅ Add-on avviato correttamente")
-
-        # 🧪 Test lettura iniziale
-        print("⏳ Test lettura dati...")
-        raw_data = await rt_api.get_data()
-        print("✅ Lettura dati riuscita!")
-        print(json.dumps(dict(raw_data), indent=2))
-
-        # 🔁 Ciclo continuo ogni 60 secondi
         while True:
             try:
-                print("⏳ Chiedo dati all'inverter...")
-                raw_data = await rt_api.get_data()
-                data = dict(raw_data)
-
-                # ⏱ Aggiunta timestamp con fuso orario Roma
-                try:
-                    timestamp = datetime.now(ZoneInfo("Europe/Rome")).isoformat()
-                except Exception as tz_err:
-                    print(f"⚠️ Errore nel calcolo del timestamp: {tz_err}")
-                    timestamp = datetime.now().isoformat()
-
-                data["timestamp"] = timestamp
-
-                print(f"🕒 Timestamp aggiunto: {timestamp}")
-                print("📡 Dati completi da inviare:")
+                data = await rt_api.get_data()
+                print("📡 Dati ricevuti dall'inverter:")
                 print(json.dumps(data, indent=2, ensure_ascii=False))
 
                 send_mqtt(client, data)
-
             except Exception as e:
                 print(f"❌ Errore nella lettura dati o pubblicazione MQTT: {e}")
 
