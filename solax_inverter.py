@@ -1,5 +1,7 @@
 import asyncio
 import json
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import paho.mqtt.client as mqtt
 from solax import discover, RealTimeAPI
 
@@ -61,11 +63,25 @@ async def main_loop():
 
         while True:
             try:
-                data = await rt_api.get_data()
-                print("📡 Dati ricevuti dall'inverter:")
+                print("⏳ Chiedo dati all'inverter...")
+                raw_data = await rt_api.get_data()
+                data = dict(raw_data)  # ✅ Converte in dict modificabile
+
+                # ⏱ Aggiunta timestamp con fuso orario di Roma
+                try:
+                    timestamp = datetime.now(ZoneInfo("Europe/Rome")).isoformat()
+                except Exception as tz_err:
+                    print(f"⚠️ Errore nel calcolo del timestamp: {tz_err}")
+                    timestamp = datetime.now().isoformat()
+
+                data["timestamp"] = timestamp
+
+                print(f"🕒 Timestamp aggiunto: {timestamp}")
+                print("📡 Dati completi da inviare:")
                 print(json.dumps(data, indent=2, ensure_ascii=False))
 
                 send_mqtt(client, data)
+
             except Exception as e:
                 print(f"❌ Errore nella lettura dati o pubblicazione MQTT: {e}")
 
