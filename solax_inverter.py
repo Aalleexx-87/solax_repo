@@ -1,14 +1,7 @@
 import asyncio
 import json
-import logging
-from datetime import datetime
-from zoneinfo import ZoneInfo  # Richiede Python 3.9+
-
 import paho.mqtt.client as mqtt
 from solax import discover, RealTimeAPI
-
-# 🔇 Silenzia i log di debug della libreria solax
-logging.getLogger("solax").setLevel(logging.WARNING)
 
 # 🔐 Legge configurazioni da /data/options.json
 with open("/data/options.json") as f:
@@ -26,8 +19,8 @@ ip_inverter = config.get("ip_inverter")
 port_inverter = int(config.get("port_inverter"))
 password_inverter = config.get("password_inverter")
 
-# Callback connessione MQTT compatibile con API version 5
-def on_connect(client, userdata, flags, rc, properties=None):
+# Callback connessione MQTT
+def on_connect(client, userdata, flags, rc):
     if rc == 0:
         print("✅ Connesso al broker MQTT con successo")
     else:
@@ -36,9 +29,6 @@ def on_connect(client, userdata, flags, rc, properties=None):
 # Pubblica dati su MQTT
 def send_mqtt(client, data):
     try:
-        # Aggiunge il timestamp in ora locale (Trento)
-        data["timestamp"] = datetime.now(ZoneInfo("Europe/Rome")).isoformat()
-
         payload = json.dumps(data)
         print("📦 Payload inviato su MQTT:")
         print(payload)
@@ -46,7 +36,7 @@ def send_mqtt(client, data):
         result = client.publish(topic, payload)
         result.wait_for_publish()
 
-        if result.rc == mqtt.MQTT_ERR_SUCCESS:
+        if result.rc == 0:
             print(f"✅ Dati pubblicati su MQTT: {topic}")
         else:
             print(f"❌ Errore nella pubblicazione: rc={result.rc}")
@@ -60,8 +50,7 @@ async def main_loop():
         inverter = await discover(ip_inverter, port_inverter, pwd=password_inverter)
         rt_api = RealTimeAPI(inverter)
 
-        # Client MQTT compatibile con API moderna, forzando MQTTv311 e TCP
-        client = mqtt.Client(protocol=mqtt.MQTTv311, transport="tcp")
+        client = mqtt.Client()
         if username and password:
             client.username_pw_set(username, password)
         client.on_connect = on_connect
