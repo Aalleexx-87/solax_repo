@@ -61,28 +61,35 @@ async def main_loop():
         client.connect(broker, port, 60)
         client.loop_start()
 
-        while True:
-            try:
-                data = await rt_api.get_data()
+while True:
+    try:
+        print("⏳ Chiedo dati all'inverter...")
+        data = await rt_api.get_data()
 
-                # ⏱ Aggiungi timestamp locale (fuso orario Europa/Rome)
-                timestamp = datetime.now(ZoneInfo("Europe/Rome")).isoformat()
-                data["timestamp"] = timestamp
+        print("✅ Dati ricevuti grezzi:")
+        print(data)
 
-                print(f"📡 Dati ricevuti dall'inverter alle {timestamp}:")
-                print(json.dumps(data, indent=2, ensure_ascii=False))
+        # ⏱ Timestamp con orario di Roma
+        try:
+            from zoneinfo import ZoneInfo
+            timestamp = datetime.now(ZoneInfo("Europe/Rome")).isoformat()
+        except Exception as tz_err:
+            print(f"⚠️ Errore nel calcolo del timestamp: {tz_err}")
+            timestamp = datetime.now().isoformat()
 
-                send_mqtt(client, data)
-            except Exception as e:
-                print(f"❌ Errore nella lettura dati o pubblicazione MQTT: {e}")
+        data["timestamp"] = timestamp
 
-            await asyncio.sleep(60)
+        print(f"🕒 Timestamp aggiunto: {timestamp}")
+        print("📡 Dati completi da inviare:")
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+
+        send_mqtt(client, data)
 
     except Exception as e:
-        print(f"❌ Errore nella connessione all'inverter: {e}")
+        print(f"❌ Errore nella lettura dati o pubblicazione MQTT: {e}")
 
-# Avvio script
-asyncio.run(main_loop())
+    await asyncio.sleep(60)
+
 
 
 
