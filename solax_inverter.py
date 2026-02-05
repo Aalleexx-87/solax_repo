@@ -1,98 +1,78 @@
 import asyncio
 import json
-import time
 import paho.mqtt.client as mqtt
 from solax import discover, RealTimeAPI
 
-OPTIONS_FILE = "/data/options.json"
-MQTT_TOPIC = "solax/inverter_data"
-POLL_INTERVAL = 60  # secondi – NON scendere sotto i 30 per G4
-
-# --------------------------------------------------
-# Caricamento configurazione
-# --------------------------------------------------
-with open(OPTIONS_FILE) as f:
+# 🔐 Legge configurazioni da /data/options.json
+with open("/data/options.json") as f:
     config = json.load(f)
 
-IP_INVERTER = config.get("ip_inverter")
-PORT_INVERTER = int(config.get("port_inverter", 80))
-PWD_INVERTER = config.get("password_inverter")
+# Parametri MQTT
+broker = config.get("ip_broker")
+port = int(config.get("port_broker"))
+username = config.get("username")
+password = config.get("password")
+topic = "solax/inverter_data"
 
-MQTT_BROKER = config.get("ip_broker")
-MQTT_PORT = int(config.get("port_broker", 1883))
-MQTT_USER = config.get("username")
-MQTT_PASS = config.get("password")
+# Parametri inverter
+ip_inverter = config.get("ip_inverter")
+port_inverter = int(config.get("port_inverter"))
+password_inverter = config.get("password_inverter")
 
-# --------------------------------------------------
-# MQTT
-# --------------------------------------------------
+# Callback connessione MQTT
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print("✅ MQTT connesso")
+        print("✅ Connesso al broker MQTT con successo")
     else:
-        print(f"❌ MQTT errore connessione rc={rc}")
+        print(f"❌ Connessione al broker MQTT fallita con codice: {rc}")
 
-def mqtt_connect():
-    client = mqtt.Client()
-    if MQTT_USER and MQTT_PASS:
-        client.username_pw_set(MQTT_USER, MQTT_PASS)
-
-    client.on_connect = on_connect
-    client.reconnect_delay_set(min_delay=5, max_delay=60)
-    client.connect(MQTT_BROKER, MQTT_PORT, 60)
-    client.loop_start()
-    return client
-
-def publish_mqtt(client, payload):
+# Pubblica dati su MQTT
+def send_mqtt(client, data):
     try:
-        msg = json.dumps(payload)
-        client.publish(MQTT_TOPIC, msg)
-        print("📤 MQTT pubblicato")
+        payload = json.dumps(data)
+        print("📦 Payload inviato su MQTT:")
+        print(payload)
+
+        result = client.publish(topic, payload)
+        result.wait_for_publish()
+
+        if result.rc == 0:
+            print(f"✅ Dati pubblicati su MQTT: {topic}")
+        else:
+            print(f"❌ Errore nella pubblicazione: rc={result.rc}")
     except Exception as e:
-        print(f"❌ Errore MQTT: {e}")
+        print(f"❌ Errore durante l'invio MQTT: {e}")
 
-# --------------------------------------------------
-# Lettura inverter (G4 safe)
-# --------------------------------------------------
-async def read_inverter():
-    inverter = await discover(
-        IP_INVERTER,
-        PORT_INVERTER,
-        pwd=PWD_INVERTER
-    )
-    rt_api = RealTimeAPI(inverter)
-    data = await rt_api.get_data()
-    return data
+# Loop principale asincrono
+async def main_loop():
+    try:
+        print(f"🔍 Scoperta inverter su {ip_inverter}:{port_inverter}")
+        inverter = await discover(ip_inverter, port_inverter, pwd=password_inverter)
+        rt_api = RealTimeAPI(inverter)
 
-# --------------------------------------------------
-# Loop principale
-# --------------------------------------------------
-async def main():
-    mqtt_client = mqtt_connect()
-    print("🚀 Solax inverter loop avviato")
+        client = mqtt.Client()
+        if username and password:
+            client.username_pw_set(username, password)
+        client.on_connect = on_connect
 
-    while True:
-        start = time.time()
+        print(f"🔌 Connessione a broker MQTT {broker}:{port}")
+        client.connect(broker, port, 60)
+        client.loop_start()
 
-        try:
-            print("🔄 Connessione inverter...")
-            data = await read_inverter()
+        while True:
+            try:
+                data = await rt_api.get_data()
+                print("📡 Dati ricevuti dall'inverter:")
+                print(json.dumps(data, indent=2, ensure_ascii=False))
 
-            print("📡 Dati ricevuti")
-            publish_mqtt(mqtt_client, data)
+                send_mqtt(client, data)
+            except Exception as e:
+                print(f"❌ Errore nella lettura dati o pubblicazione MQTT: {e}")
 
-        except Exception as e:
-            print(f"❌ Errore inverter: {e}")
+            await asyncio.sleep(60)
 
-        elapsed = time.time() - start
-        sleep_time = max(0, POLL_INTERVAL - elapsed)
+    except Exception as e:
+        print(f"❌ Errore nella connessione all'inverter: {e}")
 
-        print(f"⏳ Attesa {int(sleep_time)}s\n")
-        await asyncio.sleep(sleep_time)
-
-# --------------------------------------------------
-# Avvio
-# --------------------------------------------------
-if __name__ == "__main__":
-    asyncio.run(main())
-
+# Avvio script
+asyncio.run(main_loop())
