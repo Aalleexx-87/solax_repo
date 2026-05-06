@@ -1,91 +1,189 @@
 import asyncio
 import json
+import os
 import paho.mqtt.client as mqtt
-from solax import RealTimeAPI, X3
 from datetime import datetime
 
-# 🕒 funzione log con timestamp
+from solax import RealTimeAPI, X3HybridG4, X3V34, X3
+
+# 📁 file dove salvare il modello corretto
+MODEL_FILE = "/data/solax_model.json"
+
+# 🕒 logger con timestamp
 def log(msg):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
 
-# 🔐 Legge configurazioni da /data/options.json
+# 🔐 config Home Assistant
 with open("/data/options.json") as f:
     config = json.load(f)
 
-# Parametri MQTT
 broker = config.get("ip_broker")
 port = int(config.get("port_broker"))
 username = config.get("username")
 password = config.get("password")
 topic = "solax/inverter_data"
 
-# Parametri inverter
 ip_inverter = config.get("ip_inverter")
 port_inverter = int(config.get("port_inverter"))
 password_inverter = config.get("password_inverter")
 
-# Callback connessione MQTT
-def on_connect(client, userdata, flags, rc):
-    if rc == 0:
-        log("✅ Connesso al broker MQTT con successo")
-    else:
-        log(f"❌ Connessione MQTT fallita con codice: {rc}")
 
-# Pubblica dati su MQTT
+# -----------------------------
+# 🔍 VALIDAZIONE DATI INVERTER
+# -----------------------------
+def is_valid(data):
+    try:
+        if isinstance(data, list):
+            data = data[0]
+
+        temp = data.get("Inverter Temperature", 0)
+        pv = data.get("Total PV Power", 0)
+
+        # regole semplici ma efficaci
+        if temp < -10 or temp > 120:
+            return False
+        if pv < 0 or pv > 20000:
+            return False
+
+        return True
+
+    except:
+        return False
+
+
+# -----------------------------
+# 🤖 MODELLI DA TESTARE
+# -----------------------------
+MODELS = [
+    ("X3HybridG4", X3HybridG4),
+    ("X3V34", X3V34),
+    ("X3", X3),
+]
+
+
+# -----------------------------
+# 💾 CARICA MODELLO SALVATO
+# -----------------------------
+def load_saved_model():
+    if os.path.exists(MODEL_FILE):
+        try:
+            with open(MODEL_FILE) as f:
+                return json.load(f).get("model")
+        except:
+            return None
+    return None
+
+
+# -----------------------------
+# 💾 SALVA MODELLO SCELTO
+# -----------------------------
+def save_model(name):
+    with open(MODEL_FILE, "w") as f:
+        json.dump({"model": name}, f)
+
+
+# -----------------------------
+# 🔧 CREA INVERTER
+# -----------------------------
+def create_inverter(model_name):
+    for name, cls in MODELS:
+        if name == model_name:
+            log(f"🔧 Uso modello: {name}")
+            return cls(ip_inverter, port_inverter, password_inverter)
+    return None
+
+
+# -----------------------------
+# 🤖 AUTO-DETECT
+# -----------------------------
+async def autodetect():
+    log("🔍 Avvio auto-detect inverter...")
+
+    for name, cls in MODELS:
+        try:
+            log(f"➡️ Test modello {name}")
+            inverter = cls(ip_inverter, port_inverter, password_inverter)
+            api = RealTimeAPI(inverter)
+
+            data = await api.get_data()
+
+            if is_valid(data):
+                log(f"✅ Modello valido trovato: {name}")
+                save_model(name)
+                return inverter
+
+            log(f"⚠️ Modello {name} scartato (dati non validi)")
+
+        except Exception as e:
+            log(f"❌ Errore su {name}: {e}")
+
+    raise Exception("Nessun modello valido trovato")
+
+
+# -----------------------------
+# 📤 MQTT
+# -----------------------------
 def send_mqtt(client, data):
-    try:
-        payload = json.dumps(data)
+    payload = json.dumps(data)
 
-        log("📦 Payload MQTT inviato:")
-        print(payload)
+    log("📦 Invio MQTT")
+    print(payload)
 
-        result = client.publish(topic, payload)
-        result.wait_for_publish()
+    result = client.publish(topic, payload)
+    result.wait_for_publish()
 
-        if result.rc == 0:
-            log(f"✅ Dati pubblicati su {topic}")
-        else:
-            log(f"❌ Errore pubblicazione MQTT: rc={result.rc}")
+    if result.rc == 0:
+        log("✅ MQTT OK")
+    else:
+        log(f"❌ MQTT errore: {result.rc}")
 
-    except Exception as e:
-        log(f"❌ Errore invio MQTT: {e}")
 
-# Loop principale
-async def main_loop():
-    try:
-        log("🔧 Avvio connessione inverter Q.VOLT HYB-G3 (X3 compat mode)")
+# -----------------------------
+# 🚀 MAIN LOOP
+# -----------------------------
+async def main():
 
-        # 🚀 inverter FIXATO (no discover)
-        inverter = X3(ip_inverter, port_inverter, password_inverter)
+    saved = load_saved_model()
+
+    if saved:
+        log(f"📂 Modello salvato trovato: {saved}")
+        inverter = create_inverter(saved)
+        rt_api = RealTimeAPI(inverter)
+    else:
+        inverter = await autodetect()
         rt_api = RealTimeAPI(inverter)
 
-        client = mqtt.Client()
+    client = mqtt.Client()
 
-        if username and password:
-            client.username_pw_set(username, password)
+    if username and password:
+        client.username_pw_set(username, password)
 
-        client.on_connect = on_connect
+    client.connect(broker, port, 60)
+    client.loop_start()
 
-        log(f"🔌 Connessione MQTT {broker}:{port}")
-        client.connect(broker, port, 60)
-        client.loop_start()
+    log("🔌 MQTT connesso")
 
-        while True:
-            try:
-                data = await rt_api.get_data()
+    while True:
+        try:
+            data = await rt_api.get_data()
 
-                log("📡 Dati inverter ricevuti")
-                print(json.dumps(data, indent=2, ensure_ascii=False))
+            if not is_valid(data):
+                log("⚠️ Dati non validi, skip ciclo")
+                await asyncio.sleep(60)
+                continue
 
-                send_mqtt(client, data)
+            log("📡 Dati inverter ricevuti")
+            print(json.dumps(data, indent=2, ensure_ascii=False))
 
-            except Exception as e:
-                log(f"❌ Errore ciclo lettura/pubblicazione: {e}")
+            send_mqtt(client, data)
 
-            await asyncio.sleep(60)
+        except Exception as e:
+            log(f"❌ Errore ciclo: {e}")
 
-    except Exception as e:
-        log(f"❌ Errore generale: {e}")
+        await asyncio.sleep(60)
 
-# 🚀 start
-asyncio.run(main_loop())
+
+# -----------------------------
+# START
+# -----------------------------
+asyncio.run(main())
