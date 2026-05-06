@@ -3,71 +3,48 @@ import json
 import requests
 import paho.mqtt.client as mqtt
 from datetime import datetime
-import os
 
 def log(msg):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
 
 
-# -----------------------
-# CONFIG DA FILE LOCALE
-# -----------------------
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
-
-with open(CONFIG_PATH) as f:
+# CONFIG
+with open("/data/options.json") as f:
     config = json.load(f)
-
 
 broker = config["ip_broker"]
 port = int(config["port_broker"])
+
 username = config.get("username", "")
 password = config.get("password", "")
-
-topic = "solax/inverter_data"
 
 TOKEN = config["solax_token"]
 SN = config["solax_sn"]
 
+topic = "solax/inverter_data"
 
-# -----------------------
-# SOLAX CLOUD API
-# -----------------------
+
+# SOLAX CLOUD
 def get_data():
     url = "https://www.solaxcloud.com:9443/proxy/api/getRealtimeInfo.do"
 
-    params = {
-        "tokenId": TOKEN,
-        "sn": SN
-    }
-
-    r = requests.get(url, params=params, timeout=15)
-    data = r.json()
-
-    if isinstance(data, dict) and data.get("success") is False:
-        raise Exception(data)
-
-    return data
+    r = requests.get(url, params={"tokenId": TOKEN, "sn": SN}, timeout=15)
+    return r.json()
 
 
-# -----------------------
 # MQTT
-# -----------------------
-def on_connect(client, userdata, flags, rc):
-    log("MQTT connesso" if rc == 0 else f"MQTT errore {rc}")
-
-
-def send_mqtt(client, data):
-    payload = json.dumps(data)
-    client.publish(topic, payload)
+def send(client, data):
+    client.publish(topic, json.dumps(data))
     log("MQTT inviato")
 
 
-# -----------------------
-# MAIN LOOP
-# -----------------------
+def on_connect(client, userdata, flags, rc):
+    log("MQTT OK" if rc == 0 else f"MQTT error {rc}")
+
+
 async def main():
 
-    log("🚀 SOLAX CLOUD DOCKER MODE AVVIATO")
+    log("🚀 AVVIO SOLAX CLOUD (VERSIONE STABILE)")
 
     client = mqtt.Client()
 
@@ -82,10 +59,10 @@ async def main():
         try:
             data = get_data()
 
-            log("📡 dati Solax Cloud ricevuti")
-            print(json.dumps(data, indent=2, ensure_ascii=False))
+            log("📡 dati ricevuti")
+            print(json.dumps(data, indent=2))
 
-            send_mqtt(client, data)
+            send(client, data)
 
         except Exception as e:
             log(f"❌ errore: {e}")
