@@ -1,50 +1,37 @@
 import asyncio
 import json
-import requests
 import paho.mqtt.client as mqtt
-from datetime import datetime
+from solax import RealTimeAPI, X3HybridG4
 
-def log(msg):
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
-
-
-# CONFIG
 with open("/data/options.json") as f:
     config = json.load(f)
 
-broker = config["ip_broker"]
-port = int(config["port_broker"])
-
-username = config.get("username", "")
-password = config.get("password", "")
-
-TOKEN = config["solax_token"]
-SN = config["solax_sn"]
+broker = config.get("ip_broker")
+port = int(config.get("port_broker"))
+username = config.get("username")
+password = config.get("password")
 
 topic = "solax/inverter_data"
 
-
-# SOLAX CLOUD
-def get_data():
-    url = "https://www.solaxcloud.com:9443/proxy/api/getRealtimeInfo.do"
-
-    r = requests.get(url, params={"tokenId": TOKEN, "sn": SN}, timeout=15)
-    return r.json()
-
-
-# MQTT
-def send(client, data):
-    client.publish(topic, json.dumps(data))
-    log("MQTT inviato")
+ip_inverter = config.get("ip_inverter")
+port_inverter = int(config.get("port_inverter"))
+password_inverter = config.get("password_inverter")
 
 
 def on_connect(client, userdata, flags, rc):
-    log("MQTT OK" if rc == 0 else f"MQTT error {rc}")
+    print("MQTT OK" if rc == 0 else f"MQTT error {rc}")
+
+
+def send(client, data):
+    client.publish(topic, json.dumps(data))
 
 
 async def main():
 
-    log("🚀 AVVIO SOLAX CLOUD (VERSIONE STABILE)")
+    print("🚀 AVVIO SOLAX LAN (STABILE)")
+
+    inverter = X3HybridG4(ip_inverter, port_inverter, password_inverter)
+    api = RealTimeAPI(inverter)
 
     client = mqtt.Client()
 
@@ -57,15 +44,12 @@ async def main():
 
     while True:
         try:
-            data = get_data()
-
-            log("📡 dati ricevuti")
-            print(json.dumps(data, indent=2))
-
+            data = await api.get_data()
+            print(data)
             send(client, data)
 
         except Exception as e:
-            log(f"❌ errore: {e}")
+            print("error:", e)
 
         await asyncio.sleep(60)
 
