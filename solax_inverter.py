@@ -3,26 +3,30 @@ import json
 import requests
 import paho.mqtt.client as mqtt
 from datetime import datetime
+import os
 
 def log(msg):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
 
 
 # -----------------------
-# CONFIG
+# CONFIG DA FILE LOCALE
 # -----------------------
-with open("/data/options.json") as f:
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
+
+with open(CONFIG_PATH) as f:
     config = json.load(f)
 
-broker = config.get("ip_broker")
-port = int(config.get("port_broker"))
-username = config.get("username")
-password = config.get("password")
+
+broker = config["ip_broker"]
+port = int(config["port_broker"])
+username = config.get("username", "")
+password = config.get("password", "")
 
 topic = "solax/inverter_data"
 
-TOKEN = config.get("solax_token")
-SN = config.get("solax_sn")
+TOKEN = config["solax_token"]
+SN = config["solax_sn"]
 
 
 # -----------------------
@@ -39,7 +43,6 @@ def get_data():
     r = requests.get(url, params=params, timeout=15)
     data = r.json()
 
-    # gestione errore API
     if isinstance(data, dict) and data.get("success") is False:
         raise Exception(data)
 
@@ -50,10 +53,7 @@ def get_data():
 # MQTT
 # -----------------------
 def on_connect(client, userdata, flags, rc):
-    if rc == 0:
-        log("MQTT connesso")
-    else:
-        log(f"MQTT errore: {rc}")
+    log("MQTT connesso" if rc == 0 else f"MQTT errore {rc}")
 
 
 def send_mqtt(client, data):
@@ -67,7 +67,7 @@ def send_mqtt(client, data):
 # -----------------------
 async def main():
 
-    log("🚀 SOLAX CLOUD MODE AVVIATO (STABILE)")
+    log("🚀 SOLAX CLOUD DOCKER MODE AVVIATO")
 
     client = mqtt.Client()
 
@@ -82,7 +82,7 @@ async def main():
         try:
             data = get_data()
 
-            log("📡 dati ricevuti da Solax Cloud")
+            log("📡 dati Solax Cloud ricevuti")
             print(json.dumps(data, indent=2, ensure_ascii=False))
 
             send_mqtt(client, data)
