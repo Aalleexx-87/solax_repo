@@ -1,13 +1,16 @@
 import asyncio
 import json
-import paho.mqtt.client as mqtt
 import requests
+import paho.mqtt.client as mqtt
 from datetime import datetime
 
 def log(msg):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
 
+
+# -----------------------
 # CONFIG
+# -----------------------
 with open("/data/options.json") as f:
     config = json.load(f)
 
@@ -15,20 +18,42 @@ broker = config.get("ip_broker")
 port = int(config.get("port_broker"))
 username = config.get("username")
 password = config.get("password")
+
 topic = "solax/inverter_data"
 
-ip_inverter = config.get("ip_inverter")
-url = f"http://{ip_inverter}/api/realTimeData.htm"
+TOKEN = config.get("solax_token")
+SN = config.get("solax_sn")
 
 
-def read_inverter():
-    # chiamata DIRETTA HTTP, zero librerie Solax
-    r = requests.get(url, timeout=10)
-    return r.json()
+# -----------------------
+# SOLAX CLOUD API
+# -----------------------
+def get_data():
+    url = "https://www.solaxcloud.com:9443/proxy/api/getRealtimeInfo.do"
+
+    params = {
+        "tokenId": TOKEN,
+        "sn": SN
+    }
+
+    r = requests.get(url, params=params, timeout=15)
+    data = r.json()
+
+    # gestione errore API
+    if isinstance(data, dict) and data.get("success") is False:
+        raise Exception(data)
+
+    return data
 
 
+# -----------------------
+# MQTT
+# -----------------------
 def on_connect(client, userdata, flags, rc):
-    log("MQTT connesso" if rc == 0 else f"MQTT errore {rc}")
+    if rc == 0:
+        log("MQTT connesso")
+    else:
+        log(f"MQTT errore: {rc}")
 
 
 def send_mqtt(client, data):
@@ -37,11 +62,15 @@ def send_mqtt(client, data):
     log("MQTT inviato")
 
 
+# -----------------------
+# MAIN LOOP
+# -----------------------
 async def main():
 
-    log("🚀 START DIRECT SOLAX MODE (NO AUTODETECT)")
+    log("🚀 SOLAX CLOUD MODE AVVIATO (STABILE)")
 
     client = mqtt.Client()
+
     if username and password:
         client.username_pw_set(username, password)
 
@@ -51,10 +80,10 @@ async def main():
 
     while True:
         try:
-            data = read_inverter()
+            data = get_data()
 
-            log("📡 Dati inverter OK")
-            print(json.dumps(data, indent=2))
+            log("📡 dati ricevuti da Solax Cloud")
+            print(json.dumps(data, indent=2, ensure_ascii=False))
 
             send_mqtt(client, data)
 
