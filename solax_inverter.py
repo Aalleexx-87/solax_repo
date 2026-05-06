@@ -1,79 +1,71 @@
 import asyncio
 import json
 import paho.mqtt.client as mqtt
-#from solax import discover, RealTimeAPI
-from solax import discover, X3Hybrid
+from solax import RealTimeAPI, X3Hybrid
 
-# 🔐 Legge configurazioni da /data/options.json
 with open("/data/options.json") as f:
     config = json.load(f)
 
-# Parametri MQTT
 broker = config.get("ip_broker")
 port = int(config.get("port_broker"))
 username = config.get("username")
 password = config.get("password")
 topic = "solax/inverter_data"
 
-# Parametri inverter
 ip_inverter = config.get("ip_inverter")
 port_inverter = int(config.get("port_inverter"))
 password_inverter = config.get("password_inverter")
 
-# Callback connessione MQTT
-def on_connect(client, userdata, flags, rc):
-    if rc == 0:
-        print("✅ Connesso al broker MQTT con successo")
-    else:
-        print(f"❌ Connessione al broker MQTT fallita con codice: {rc}")
 
-# Pubblica dati su MQTT
+def on_connect(client, userdata, flags, rc):
+    print("MQTT connected" if rc == 0 else f"MQTT error {rc}")
+
+
+def normalize(data):
+    # 🔥 FIX CHIAVE: prende sempre il dict giusto
+    if isinstance(data, list):
+        return data[0]
+    return data
+
+
 def send_mqtt(client, data):
     try:
         payload = json.dumps(data)
-        print("📦 Payload inviato su MQTT:")
-        print(payload)
-
-        result = client.publish(topic, payload)
-        result.wait_for_publish()
-
-        if result.rc == 0:
-            print(f"✅ Dati pubblicati su MQTT: {topic}")
-        else:
-            print(f"❌ Errore nella pubblicazione: rc={result.rc}")
+        client.publish(topic, payload).wait_for_publish()
+        print("📤 MQTT sent")
     except Exception as e:
-        print(f"❌ Errore durante l'invio MQTT: {e}")
+        print(f"MQTT error: {e}")
 
-# Loop principale asincrono
-async def main_loop():
-    try:
-        print(f"🔍 Scoperta inverter su {ip_inverter}:{port_inverter}")
-        inverter = await discover(ip_inverter, port_inverter, pwd=password_inverter)
-        rt_api = RealTimeAPI(inverter)
 
-        client = mqtt.Client()
-        if username and password:
-            client.username_pw_set(username, password)
-        client.on_connect = on_connect
+async def main():
+    print(f"🔧 X3Hybrid direct connect {ip_inverter}:{port_inverter}")
 
-        print(f"🔌 Connessione a broker MQTT {broker}:{port}")
-        client.connect(broker, port, 60)
-        client.loop_start()
+    inverter = X3Hybrid(ip_inverter, port_inverter, password_inverter)
+    rt_api = RealTimeAPI(inverter)
 
-        while True:
-            try:
-                data = await rt_api.get_data()
-                print("📡 Dati ricevuti dall'inverter:")
-                print(json.dumps(data, indent=2, ensure_ascii=False))
+    client = mqtt.Client()
+    if username:
+        client.username_pw_set(username, password)
 
-                send_mqtt(client, data)
-            except Exception as e:
-                print(f"❌ Errore nella lettura dati o pubblicazione MQTT: {e}")
+    client.on_connect = on_connect
+    client.connect(broker, port, 60)
+    client.loop_start()
 
-            await asyncio.sleep(60)
+    while True:
+        try:
+            data = await rt_api.get_data()
 
-    except Exception as e:
-        print(f"❌ Errore nella connessione all'inverter: {e}")
+            data = normalize(data)
 
-# Avvio script
-asyncio.run(main_loop())
+            print("📡 RAW FIXED:")
+            print(json.dumps(data, indent=2))
+
+            send_mqtt(client, data)
+
+        except Exception as e:
+            print(f"ERROR: {e}")
+
+        await asyncio.sleep(60)
+
+
+asyncio.run(main())
