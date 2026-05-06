@@ -6,16 +6,16 @@ from solax import RealTimeAPI, X3HybridG4
 with open("/data/options.json") as f:
     config = json.load(f)
 
-broker = config.get("ip_broker")
-port = int(config.get("port_broker"))
-username = config.get("username")
-password = config.get("password")
+broker = config["ip_broker"]
+port = int(config["port_broker"])
+username = config.get("username", "")
+password = config.get("password", "")
+
+ip_inverter = config["ip_inverter"]
+port_inverter = int(config["port_inverter"])
+password_inverter = config["password_inverter"]
 
 topic = "solax/inverter_data"
-
-ip_inverter = config.get("ip_inverter")
-port_inverter = int(config.get("port_inverter"))
-password_inverter = config.get("password_inverter")
 
 
 def on_connect(client, userdata, flags, rc):
@@ -28,7 +28,7 @@ def send(client, data):
 
 async def main():
 
-    print("🚀 AVVIO SOLAX LAN (STABILE)")
+    print("🚀 SOLAX LAN STABLE START")
 
     inverter = X3HybridG4(ip_inverter, port_inverter, password_inverter)
     api = RealTimeAPI(inverter)
@@ -47,7 +47,6 @@ async def main():
             data = await api.get_data()
             print(data)
             send(client, data)
-
         except Exception as e:
             print("error:", e)
 
