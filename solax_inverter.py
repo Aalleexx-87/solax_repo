@@ -1,7 +1,7 @@
 import asyncio
 import json
 import paho.mqtt.client as mqtt
-from solax import RealTimeAPI, X3HybridG4
+from solax import discover, RealTimeAPI
 
 # 🔐 Legge configurazioni da /data/options.json
 with open("/data/options.json") as f:
@@ -40,29 +40,19 @@ def send_mqtt(client, data):
             print(f"✅ Dati pubblicati su MQTT: {topic}")
         else:
             print(f"❌ Errore nella pubblicazione: rc={result.rc}")
-
     except Exception as e:
         print(f"❌ Errore durante l'invio MQTT: {e}")
 
 # Loop principale asincrono
 async def main_loop():
     try:
-        print(f"🚀 Connessione FORZATA X3HybridG4 su {ip_inverter}:{port_inverter}")
-
-        # 🔥 FORZA MODELLO (NO DISCOVER)
-        inverter = X3HybridG4(
-            ip_inverter,
-            port_inverter,
-            password_inverter
-        )
-
+        print(f"🔍 Scoperta inverter su {ip_inverter}:{port_inverter}")
+        inverter = await discover(ip_inverter, port_inverter, pwd=password_inverter)
         rt_api = RealTimeAPI(inverter)
 
         client = mqtt.Client()
-
         if username and password:
             client.username_pw_set(username, password)
-
         client.on_connect = on_connect
 
         print(f"🔌 Connessione a broker MQTT {broker}:{port}")
@@ -72,22 +62,15 @@ async def main_loop():
         while True:
             try:
                 data = await rt_api.get_data()
-
                 print("📡 Dati ricevuti dall'inverter:")
                 print(json.dumps(data, indent=2, ensure_ascii=False))
 
                 send_mqtt(client, data)
-
             except Exception as e:
                 print(f"❌ Errore nella lettura dati o pubblicazione MQTT: {e}")
 
             await asyncio.sleep(60)
 
-    except Exception as e:
-        print(f"❌ Errore generale: {e}")
-
-# Avvio
-asyncio.run(main_loop())
     except Exception as e:
         print(f"❌ Errore nella connessione all'inverter: {e}")
 
