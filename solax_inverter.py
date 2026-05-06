@@ -1,7 +1,7 @@
 import asyncio
 import json
 import paho.mqtt.client as mqtt
-from solax import discover, RealTimeAPI
+from solax import RealTimeAPI, X3Hybrid
 
 # 🔐 Legge configurazioni da /data/options.json
 with open("/data/options.json") as f:
@@ -46,8 +46,8 @@ def send_mqtt(client, data):
 # Loop principale asincrono
 async def main_loop():
     try:
-        print(f"🔍 Scoperta inverter su {ip_inverter}:{port_inverter}")
-        inverter = await discover(ip_inverter, port_inverter, pwd=password_inverter)
+        print(f"🔧 Connessione diretta inverter (X3Hybrid) su {ip_inverter}:{port_inverter}")
+        inverter = X3Hybrid(ip_inverter, port_inverter, password_inverter)
         rt_api = RealTimeAPI(inverter)
 
         client = mqtt.Client()
