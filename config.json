@@ -1,31 +1,41 @@
 {
   "name": "SolaX Inverter MQTT",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "slug": "solax_inverter",
   "description": "Legge i dati dall'inverter SolaX e li pubblica su MQTT",
-  "startup": "application",
+  "startup": "services",
   "boot": "auto",
+  "arch": [
+    "amd64",
+    "aarch64",
+    "armv7"
+  ],
+
+  "init": false,
+  "ingress": false,
   "hassio_api": false,
   "homeassistant_api": false,
   "auth": false,
+
   "privileged": [],
-  "arch": ["amd64", "armv7", "aarch64"],
+
   "options": {
     "username": "",
     "password": "",
     "ip_broker": "",
-    "port_broker": "",
+    "port_broker": 1883,
     "ip_inverter": "",
-    "port_inverter": "",
+    "port_inverter": 80,
     "password_inverter": ""
   },
+
   "schema": {
     "username": "str",
     "password": "str",
     "ip_broker": "str",
-    "port_broker": "str",
+    "port_broker": "int",
     "ip_inverter": "str",
-    "port_inverter": "str",
+    "port_inverter": "int",
     "password_inverter": "str"
   }
 }
