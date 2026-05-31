@@ -33,7 +33,7 @@ async def main():
     rt_api = RealTimeAPI(inverter)
     print(f"✅ Inverter: {inverter.__class__.__name__}")
 
-    client = mqtt.Client()
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     if username:
         client.username_pw_set(username, password)
     client.on_connect = on_connect
