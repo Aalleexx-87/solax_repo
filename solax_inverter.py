@@ -1,7 +1,7 @@
 import asyncio
 import json
 import paho.mqtt.client as mqtt
-from solax.inverters import X1HybridGen4
+from solax.inverters import X3HybridG4
 from solax import discover
 
 with open("/data/options.json") as f:
@@ -29,7 +29,7 @@ def send_mqtt(client, data):
 
 async def main():
     print(f"🔧 Connecting to inverter {ip_inverter}:{port_inverter}")
-    inverter = X1HybridGen4._build(ip_inverter, port_inverter, password_inverter)
+    inverter = X3HybridG4._build(ip_inverter, port_inverter, password_inverter)
     print(f"✅ Inverter: {inverter.__class__.__name__}")
 
     client = mqtt.Client()
