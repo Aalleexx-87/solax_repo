@@ -6,6 +6,8 @@ import importlib.metadata
 print(f"solax version: {importlib.metadata.version('solax')}")
 import solax
 print(dir(solax))
+from solax import inverters
+print(dir(inverters))
 
 with open("/data/options.json") as f:
     config = json.load(f)
