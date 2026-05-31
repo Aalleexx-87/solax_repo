@@ -4,6 +4,8 @@ import paho.mqtt.client as mqtt
 # from solax import RealTimeAPI, X3Hybrid
 import importlib.metadata
 print(f"solax version: {importlib.metadata.version('solax')}")
+import solax
+print(dir(solax))
 
 with open("/data/options.json") as f:
     config = json.load(f)
