@@ -11,22 +11,12 @@ port = int(config.get("port_broker"))
 username = config.get("username")
 password = config.get("password")
 topic = "solax/inverter_data"
-
 ip_inverter = config.get("ip_inverter")
 port_inverter = int(config.get("port_inverter"))
 password_inverter = config.get("password_inverter")
 
-
 def on_connect(client, userdata, flags, rc):
     print("MQTT connected" if rc == 0 else f"MQTT error {rc}")
-
-
-def normalize(data):
-    # 🔥 FIX CHIAVE: prende sempre il dict giusto
-    if isinstance(data, list):
-        return data[0]
-    return data
-
 
 def send_mqtt(client, data):
     try:
@@ -36,36 +26,28 @@ def send_mqtt(client, data):
     except Exception as e:
         print(f"MQTT error: {e}")
 
-
 async def main():
-    print(f"🔧 X3Hybrid direct connect {ip_inverter}:{port_inverter}")
-
-    inverter = X3Hybrid(ip_inverter, port_inverter, password_inverter)
-    rt_api = RealTimeAPI(inverter)
+    print(f"🔧 Connecting to inverter {ip_inverter}:{port_inverter}")
+    inverter = await discover(ip_inverter, port_inverter, password_inverter)
+    print(f"✅ Inverter found: {inverter.__class__.__name__}")
 
     client = mqtt.Client()
     if username:
         client.username_pw_set(username, password)
-
     client.on_connect = on_connect
     client.connect(broker, port, 60)
     client.loop_start()
 
     while True:
         try:
-            data = await rt_api.get_data()
-
-            data = normalize(data)
-
-            print("📡 RAW FIXED:")
+            data = await inverter.get_data()
+            if isinstance(data, list):
+                data = data[0]
+            print("📡 RAW DATA:")
             print(json.dumps(data, indent=2))
-
             send_mqtt(client, data)
-
         except Exception as e:
             print(f"ERROR: {e}")
-
         await asyncio.sleep(60)
-
 
 asyncio.run(main())
