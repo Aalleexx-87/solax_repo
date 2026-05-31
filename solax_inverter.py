@@ -47,7 +47,9 @@ async def main():
             print(json.dumps(data, indent=2))
             send_mqtt(client, data)
         except Exception as e:
+            import traceback
             print(f"ERROR: {e}")
+            traceback.print_exc()
         await asyncio.sleep(60)
 
 asyncio.run(main())
