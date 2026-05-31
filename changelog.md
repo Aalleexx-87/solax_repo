@@ -1,5 +1,6 @@
-## [1.2.0] - 2025-05-14
-- Maggiore stabilità nelle comunicazioni con l'inverter.
+## 1.1.2 - 2026-05-31
+- Fix import X3HybridG4 con params_in_query=False
+- Fix DeprecationWarning MQTT CallbackAPIVersion
 
 ## [1.1.0] - 2025-05-14
 ### Aggiunto
