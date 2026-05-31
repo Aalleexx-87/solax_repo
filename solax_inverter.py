@@ -1,8 +1,7 @@
 import asyncio
 import json
 import paho.mqtt.client as mqtt
-from solax.inverters import X3HybridG4
-from solax import discover
+from solax import RealTimeAPI, X3Hybrid
 
 with open("/data/options.json") as f:
     config = json.load(f)
@@ -29,7 +28,8 @@ def send_mqtt(client, data):
 
 async def main():
     print(f"🔧 Connecting to inverter {ip_inverter}:{port_inverter}")
-    inverter = X3HybridG4._build(ip_inverter, port_inverter, password_inverter)
+    inverter = X3Hybrid(ip_inverter, port_inverter, password_inverter)
+    rt_api = RealTimeAPI(inverter)
     print(f"✅ Inverter: {inverter.__class__.__name__}")
 
     client = mqtt.Client()
@@ -41,8 +41,7 @@ async def main():
 
     while True:
         try:
-            async with asyncio.timeout(30):
-                data = await inverter.get_data()
+            data = await rt_api.get_data()
             if isinstance(data, list):
                 data = data[0]
             print("📡 RAW DATA:")
