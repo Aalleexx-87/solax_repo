@@ -1,7 +1,7 @@
 import asyncio
 import json
 import paho.mqtt.client as mqtt
-from solax import RealTimeAPI, X3Hybrid
+from solax import discover
 
 with open("/data/options.json") as f:
     config = json.load(f)
