@@ -1,13 +1,8 @@
 import asyncio
 import json
 import paho.mqtt.client as mqtt
-# from solax import RealTimeAPI, X3Hybrid
-import importlib.metadata
-print(f"solax version: {importlib.metadata.version('solax')}")
-import solax
-print(dir(solax))
-from solax import inverters
-print(dir(inverters))
+from solax import RealTimeAPI
+from solax.inverters import XHybrid
 
 with open("/data/options.json") as f:
     config = json.load(f)
@@ -34,7 +29,7 @@ def send_mqtt(client, data):
 
 async def main():
     print(f"🔧 Connecting to inverter {ip_inverter}:{port_inverter}")
-    inverter = X3Hybrid(ip_inverter, port_inverter, password_inverter)
+    inverter = XHybrid._build(ip_inverter, port_inverter, password_inverter)
     rt_api = RealTimeAPI(inverter)
     print(f"✅ Inverter: {inverter.__class__.__name__}")
 
