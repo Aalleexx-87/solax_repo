@@ -1,3 +1,6 @@
+## [1.2.0] - 2025-05-14
+- Maggiore stabilità nelle comunicazioni con l'inverter.
+
 ## [1.1.0] - 2025-05-14
 ### Aggiunto
 - Supporto per nuove configurazioni in `config.json`.
