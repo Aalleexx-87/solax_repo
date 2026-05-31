@@ -1,16 +1,7 @@
-print(">>> SOLAX SCRIPT STARTED <<<")
-
-import time
-time.sleep(5)
-
-print(">>> IMPORT START <<<")
-
 import asyncio
 import json
 import paho.mqtt.client as mqtt
-from solax import RealTimeAPI
-
-print(">>> IMPORT OK <<<")
+from solax import RealTimeAPI, X3Hybrid
 
 with open("/data/options.json") as f:
     config = json.load(f)
