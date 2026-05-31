@@ -1,7 +1,8 @@
 import asyncio
 import json
 import paho.mqtt.client as mqtt
-from solax import discover
+from solax.inverters import X1HybridGen4
+inverter = X1HybridGen4.build(ip_inverter, port_inverter, password_inverter)
 
 with open("/data/options.json") as f:
     config = json.load(f)
