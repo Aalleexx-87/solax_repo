@@ -4,6 +4,6 @@ WORKDIR /app
 
 COPY solax_inverter.py /app/solax_inverter.py
 
-RUN pip install --no-cache-dir requests paho-mqtt aiohttp solax
+RUN echo ">>> BUILD OK <<<"
 
-CMD [ "python3", "-u", "/app/solax_inverter.py" ]
+CMD ["sh", "-c", "echo '>>> CONTAINER STARTED <<<'; python3 -u /app/solax_inverter.py"]
