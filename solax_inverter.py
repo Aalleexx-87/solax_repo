@@ -3,6 +3,7 @@ import json
 import paho.mqtt.client as mqtt
 from solax import RealTimeAPI
 from solax.inverters import X3HybridG4
+from datetime import datetime
 
 with open("/data/options.json") as f:
     config = json.load(f)
@@ -45,6 +46,9 @@ async def main():
             data = await rt_api.get_data()
             if isinstance(data, list):
                 data = data[0]
+
+            data["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
             print("📡 RAW DATA:")
             print(json.dumps(data, indent=2))
             send_mqtt(client, data)
