@@ -17,8 +17,8 @@ ip_inverter = config.get("ip_inverter")
 port_inverter = int(config.get("port_inverter"))
 password_inverter = config.get("password_inverter")
 
-def on_connect(client, userdata, flags, rc):
-    print("MQTT connected" if rc == 0 else f"MQTT error {rc}")
+def on_connect(client, userdata, flags, reason_code, properties):  # ← fix: aggiunto properties
+    print("MQTT connected" if reason_code == 0 else f"MQTT error {reason_code}")
 
 def send_mqtt(client, data):
     try:
@@ -43,12 +43,17 @@ async def main():
 
     while True:
         try:
-            data = await rt_api.get_data()
-            if isinstance(data, list):
-                data = data[0]
+            response = await rt_api.get_data()
+            if isinstance(response, list):
+                response = response[0]
 
-            data["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
+            # ← fix: converte InverterResponse in dict prima di modificarlo
+            data = {
+                "data": response.data,
+                "status": response.status if hasattr(response, "status") else None,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+
             print("📡 RAW DATA:")
             print(json.dumps(data, indent=2))
             send_mqtt(client, data)
